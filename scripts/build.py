@@ -160,8 +160,8 @@ def main():
         mod = best_of([r for r in reps if not official(r)])
         fork_only = (not official(best)) and (off is None or ORDER.index(off["status"]) < ORDER.index(best["status"]))
         for rec in last.get("missing", []):
-            if rec.get("class") != "absent":
-                continue
+            if rec.get("class") != "absent" or rec.get("lib", "").endswith((".suprx", ".sprx", ".prx")):
+                continue  # functions of the title's own modules are not AnyPS5 work
             key = (rec.get("lib", ""), rec.get("name") or rec.get("nid", ""))
             missing_count.setdefault(key, set()).add(tid)
         games.append({
