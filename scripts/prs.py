@@ -16,6 +16,11 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else "site/prs.json"
 LIMIT = int(os.environ.get("PRS_LIMIT", "300"))
 DEF = re.compile(r"APS5_VABI\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 LIB = re.compile(r"core/libs/prx/([^/]+)/")
+SUFFIX = "_nid_postfix"
+
+
+def clean(name):
+    return name[:-len(SUFFIX)] if name.endswith(SUFFIX) else name
 
 
 def get(url):
@@ -39,6 +44,8 @@ def functions_of(files):
     added, stubbed_added, removed_stubs, libs = set(), set(), set(), set()
     for f in files:
         name = f.get("filename", "")
+        if "/tests/" in name or "/test/" in name or not name.endswith((".cpp", ".cc", ".c", ".hpp", ".h")):
+            continue
         m = LIB.search(name)
         patch = f.get("patch") or ""
         if not patch:
@@ -46,16 +53,16 @@ def functions_of(files):
         lines = patch.splitlines()
         for i, line in enumerate(lines):
             d = DEF.search(line)
-            if not d or line.startswith("@@"):
-                continue
+            if not d or line.startswith("@@") or line.rstrip().endswith(";"):
+                continue  # not a definition (hunk header or declaration)
             body = "\n".join(lines[i + 1:i + 4])
             stub = "NotImplemented" in body
             if line.startswith("+"):
-                (stubbed_added if stub else added).add(d.group(1))
+                (stubbed_added if stub else added).add(clean(d.group(1)))
                 if m and not stub:
                     libs.add(m.group(1))
             elif line.startswith("-") and stub and name.endswith("Export.cpp"):
-                removed_stubs.add(d.group(1))
+                removed_stubs.add(clean(d.group(1)))
                 if m:
                     libs.add(m.group(1))
     return sorted((added | removed_stubs) - stubbed_added), sorted(libs)
