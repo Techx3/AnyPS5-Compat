@@ -195,6 +195,13 @@ function ago(iso) {
   if (d < 86400 * 30) return Math.round(d / 86400) + " d ago";
   return new Date(iso).toLocaleDateString();
 }
+const NTSTATUS = { 3221225477: "access violation", 3221225725: "stack overflow", 3221226505: "stack buffer overrun",
+  3221225501: "illegal instruction", 3221225620: "division by zero", 3221225786: "closed (Ctrl+C)", 3221226356: "heap corruption" };
+function code(c) {
+  if (c === null || c === undefined) return "–";
+  const u = c < 0 ? c + 4294967296 : c;
+  return u > 65535 ? `0x${u.toString(16).toUpperCase()}${NTSTATUS[u] ? " (" + NTSTATUS[u] + ")" : ""}` : String(c);
+}
 const ver = a => a ? `${a.channel || ""} ${a.version || ""}`.trim() : "";
 
 function summary() {
@@ -216,13 +223,14 @@ function detail(g) {
     <dl class="dgrid">
       <div><dt>AnyPS5</dt><dd class="ver">${esc(ver(g.anyps5))}</dd></div>
       <div><dt>Best result</dt><dd>${pill(g.best)} <span class="muted">${esc(g.best_version)}</span></dd></div>
-      <div><dt>Last session</dt><dd>${g.minutes} min · exit code ${esc(g.exit_code ?? "–")}${g.closed_by_user ? " · closed by the user" : ""}</dd></div>
+      <div><dt>Last session</dt><dd>${g.minutes} min · ${g.crashed ? `<span style="color:var(--s-nothing)">crashed</span> · ` : ""}exit code ${esc(code(g.exit_code))}${g.closed_by_user ? " · closed by the user" : ""}</dd></div>
       <div><dt>System</dt><dd>${esc(g.os)}<br><span class="muted">${esc(g.gpu || "unknown GPU")}</span></dd></div>
       <div><dt>Functions</dt><dd>${g.absent} missing · ${g.stub} stub · ${g.missing_libs} libraries missing</dd></div>
       <div><dt>Reports</dt><dd>${g.reports} from ${g.testers} tester${g.testers === 1 ? "" : "s"} · game ${esc(g.game_version || "–")}</dd></div>
       ${stop ? `<div>${stop}</div>` : ""}
     </dl>
     <h3>Missing functions</h3>${fns}
+    ${g.errors?.length ? `<h3>Errors in the log</h3><pre>${esc(g.errors.join("\n"))}</pre>` : ""}
     ${g.log_tail?.length ? `<h3>Log (last lines)</h3><pre>${esc(g.log_tail.join("\n"))}</pre>` : ""}
     <div class="links"><a href="${esc(g.url)}">Issue #${g.issue}</a><a href="${esc(g.report_url)}">Latest report</a></div>`;
 }

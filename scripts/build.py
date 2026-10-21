@@ -46,6 +46,20 @@ def paged(path):
         yield from page
 
 
+SEPARATOR = "··· end of log ···"
+
+
+def crashed(r):
+    return r.get("exit_code") not in (0, None) and not r.get("closed_by_user") and r.get("status") != "convert"
+
+
+def normalize(r):
+    # A session that ends in a crash is never "playable", whatever its length.
+    if r["status"] == "playable" and crashed(r):
+        r["status"] = "ingame"
+    return r
+
+
 def reports_in(text, author, url, created):
     out = []
     for m in BLOCK.finditer(text or ""):
@@ -58,7 +72,7 @@ def reports_in(text, author, url, created):
         r["_by"] = author
         r["_url"] = url
         r["_created"] = created
-        out.append(r)
+        out.append(normalize(r))
     return out
 
 
@@ -103,6 +117,9 @@ def main():
         if issue.get("comments"):
             for c in paged(f"/repos/{REPO}/issues/{issue['number']}/comments?per_page=100"):
                 reps += reports_in(c.get("body"), c["user"]["login"], c["html_url"], c["created_at"])
+        if issue.get("state_reason") == "not_planned" and issue.get("closed_at"):
+            # closed as "not planned" = invalid reports; only reports sent after closing count
+            reps = [r for r in reps if r["_created"] > issue["closed_at"]]
         if not reps:
             continue
         entry = by_tid.setdefault(m.group(1).upper(), {"issues": [], "reps": [], "title": m.group(2)})
@@ -143,7 +160,10 @@ def main():
             "missing_libs": last.get("missing_libs", 0),
             "missing": [x for x in last.get("missing", []) if x.get("class") == "absent"][:30],
             "stop": last.get("stop"),
-            "log_tail": last.get("log_tail", [])[-15:],
+            "crashed": crashed(last),
+            "errors": (last.get("log_tail", [])[:last.get("log_tail", []).index(SEPARATOR)]
+                       if SEPARATOR in last.get("log_tail", []) else []),
+            "log_tail": [x for x in last.get("log_tail", []) if x != SEPARATOR][-15:],
             "report_url": last["_url"],
         })
         if labels_ok:
