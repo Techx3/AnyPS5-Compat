@@ -47,6 +47,7 @@ def paged(path):
 
 
 SEPARATOR = "··· end of log ···"
+SHOT_PATH = re.compile(r"^shots/[A-Za-z0-9_.-]{1,32}/[A-Za-z0-9_.-]{1,80}\.jpg$")
 
 
 def crashed(r):
@@ -161,6 +162,11 @@ def main():
             "missing": [x for x in last.get("missing", []) if x.get("class") == "absent"][:30],
             "stop": last.get("stop"),
             "crashed": crashed(last),
+            "shots": next(([{"minute": x.get("minute", 0),
+                             "url": f"https://raw.githubusercontent.com/{REPO}/shots/{x['path']}",
+                             "version": r.get("anyps5", {}).get("version", ""), "time": r.get("time", "")}
+                            for x in r["shots"] if SHOT_PATH.match(str(x.get("path", "")))]
+                           for r in reversed(reps) if r.get("shots")), []),
             "errors": (last.get("log_tail", [])[:last.get("log_tail", []).index(SEPARATOR)]
                        if SEPARATOR in last.get("log_tail", []) else []),
             "log_tail": [x for x in last.get("log_tail", []) if x != SEPARATOR][-15:],

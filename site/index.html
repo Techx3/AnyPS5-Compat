@@ -102,6 +102,10 @@ pre {
   margin: 0; background: #070b12; border: 1px solid var(--line); border-radius: 8px; padding: 12px;
   font: 12px/1.5 var(--mono); color: #c8d0dc; overflow-x: auto; max-height: 280px;
 }
+.shots { display: flex; gap: 12px; flex-wrap: wrap; }
+.shots a { display: block; width: min(320px, 100%); color: var(--dim); font-size: 12px; text-decoration: none; }
+.shots img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); background: #070b12; }
+.shots span { display: block; margin-top: 4px; }
 .links { margin-top: 14px; display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; }
 .empty { padding: 40px 18px; text-align: center; color: var(--dim); }
 
@@ -229,6 +233,8 @@ function detail(g) {
       <div><dt>Reports</dt><dd>${g.reports} from ${g.testers} tester${g.testers === 1 ? "" : "s"} · game ${esc(g.game_version || "–")}</dd></div>
       ${stop ? `<div>${stop}</div>` : ""}
     </dl>
+    ${g.shots?.length ? `<h3>Screenshots</h3><div class="shots">${g.shots.map(x =>
+      `<a href="${esc(x.url)}" target="_blank" rel="noopener"><img src="${esc(x.url)}" loading="lazy" alt="${x.minute} min"><span>${x.minute} min · ${esc(x.version)}</span></a>`).join("")}</div>` : ""}
     <h3>Missing functions</h3>${fns}
     ${g.errors?.length ? `<h3>Errors in the log</h3><pre>${esc(g.errors.join("\n"))}</pre>` : ""}
     ${g.log_tail?.length ? `<h3>Log (last lines)</h3><pre>${esc(g.log_tail.join("\n"))}</pre>` : ""}

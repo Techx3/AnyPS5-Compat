@@ -7,6 +7,11 @@ const STATUSES = { convert: "Does not convert", nothing: "Does not boot", boots:
 const MAX_BODY = 64 * 1024;
 const PER_IP_PER_HOUR = 30;
 const TITLE_ID = /^[A-Za-z0-9_.-]{1,32}$/;
+const SHOTS_BRANCH = "shots";
+const SHOT_PATH = /^shots\/[A-Za-z0-9_.-]{1,32}\/[A-Za-z0-9_.-]{1,80}\.jpg$/;
+const MAX_SHOT = 400 * 1024;
+const SHOTS_PER_IP_PER_HOUR = 12;
+const RAW = `https://raw.githubusercontent.com/${REPO}/${SHOTS_BRANCH}/`;
 
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
@@ -24,14 +29,14 @@ function gh(env, path, init = {}) {
   });
 }
 
-async function rateLimited(request) {
+async function rateLimited(request, kind = "report", limit = PER_IP_PER_HOUR) {
   const ip = request.headers.get("cf-connecting-ip") || "unknown";
   const hour = Math.floor(Date.now() / 3600000);
-  const key = new Request(`https://rate.limit/${encodeURIComponent(ip)}/${hour}`);
+  const key = new Request(`https://rate.limit/${kind}/${encodeURIComponent(ip)}/${hour}`);
   const cache = caches.default;
   const hit = await cache.match(key);
   const n = hit ? parseInt(await hit.text(), 10) || 0 : 0;
-  if (n >= PER_IP_PER_HOUR) return true;
+  if (n >= limit) return true;
   await cache.put(key, new Response(String(n + 1), { headers: { "cache-control": "max-age=3600" } }));
   return false;
 }
@@ -65,6 +70,9 @@ function clean(r) {
     stop: r.stop ? { lib: str(r.stop.lib, 80), name: str(r.stop.name, 120), nid: str(r.stop.nid, 32) } : null,
     log_tail: (Array.isArray(r.log_tail) ? r.log_tail : []).slice(-60).map(x => str(x, 300).replace(/```/g, "'''")),
     reporter: str(r.reporter, 40),
+    shots: (Array.isArray(r.shots) ? r.shots : []).slice(0, 4)
+      .filter(x => SHOT_PATH.test(String(x?.path || "")))
+      .map(x => ({ minute: Math.max(0, Math.min(num(x.minute) || 0, 600)), path: String(x.path) })),
     time: str(r.time, 32) || new Date().toISOString(),
   };
 }
@@ -79,6 +87,7 @@ function body(r) {
     `**Functions:** ${r.absent} missing, ${r.stub} stub, ${r.missing_libs} missing libraries`,
   ];
   if (r.stop) lines.push(`**Stops at:** \`${r.stop.lib}\` ${r.stop.name || r.stop.nid}`);
+  if (r.shots.length) lines.push("", r.shots.map(x => `<img src="${RAW}${x.path}" width="320" alt="${x.minute} min">`).join(" "));
   if (r.log_tail.length) lines.push("", "<details><summary>Log (last lines)</summary>", "", "```", ...r.log_tail.slice(-40), "```", "</details>");
   lines.push("", "<!-- anyps5-report", JSON.stringify(r).replace(/--/g, "\\u002d\\u002d").replace(/>/g, "\\u003e"), "-->");
   return lines.join("\n");
@@ -93,10 +102,43 @@ async function findIssue(env, tid) {
   return it ? it.number : null;
 }
 
+async function saveShot(request, env) {
+  const len = parseInt(request.headers.get("content-length") || "0", 10);
+  if (len > MAX_SHOT * 1.4 + 1024) return json({ error: "too large" }, 413);
+  if (await rateLimited(request, "shot", SHOTS_PER_IP_PER_HOUR)) return json({ error: "rate limited" }, 429);
+  let d;
+  try {
+    d = JSON.parse(await request.text());
+  } catch {
+    return json({ error: "bad json" }, 400);
+  }
+  if (!TITLE_ID.test(String(d.title_id || ""))) return json({ error: "bad title_id" }, 400);
+  const b64 = String(d.image || "");
+  let bytes;
+  try {
+    bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  } catch {
+    return json({ error: "bad image" }, 400);
+  }
+  if (bytes.length > MAX_SHOT || bytes.length < 1000) return json({ error: "bad size" }, 400);
+  if (bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return json({ error: "not a jpeg" }, 400);
+  const minute = Math.max(0, Math.min(parseInt(d.minute, 10) || 0, 600));
+  const who = str(d.reporter, 16).replace(/[^A-Za-z0-9]/g, "") || "anon";
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "");
+  const path = `shots/${d.title_id}/${stamp}-${minute}m-${who}.jpg`;
+  const res = await gh(env, `/repos/${REPO}/contents/${path}`, {
+    method: "PUT",
+    body: JSON.stringify({ message: `shot ${d.title_id} ${minute} min`, content: b64, branch: SHOTS_BRANCH }),
+  });
+  if (!res.ok) return json({ error: `github ${res.status}` }, 502);
+  return json({ ok: true, path });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "GET") return json({ ok: true, service: "anyps5-compat-relay" });
+    if (request.method === "GET") return json({ ok: true, service: "anyps5-compat-relay", shots: true });
+    if (request.method === "POST" && url.pathname === "/shot") return saveShot(request, env);
     if (request.method !== "POST" || url.pathname !== "/report") return json({ error: "not found" }, 404);
     const len = parseInt(request.headers.get("content-length") || "0", 10);
     if (len > MAX_BODY) return json({ error: "too large" }, 413);

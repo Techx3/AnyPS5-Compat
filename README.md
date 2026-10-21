@@ -10,7 +10,7 @@ Compatibility list for games run with [AnyPS5](https://github.com/boykopovar/Any
 2. Every time a game ends or fails, the console sends a report. The first report of a game opens an issue titled `[TITLE_ID] Name`; later reports are comments on it. A report is only sent when something changed (status, AnyPS5 version, missing functions).
 3. A GitHub Action reads all reports, labels each issue with its status and publishes the list on GitHub Pages.
 
-Paths and user names are removed from the log before sending.
+Paths and user names are removed from the log before sending. At 2 and 10 minutes the console takes a screenshot of the game window only; they are stored in the `shots` branch.
 
 ## Status
 

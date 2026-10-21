@@ -2,13 +2,14 @@
 
 Cloudflare Worker that receives reports from AnyPS5 Console and files them as issues, so players do not need a GitHub account.
 
-- Validates and trims every report, limits each IP to 30 reports per hour.
+- Validates and trims every report, limits each IP to 30 reports and 12 screenshots per hour.
+- Screenshots (JPEG, max 400 KB, game window only) are committed to the `shots` branch.
 - The GitHub token lives only in the Worker as a secret; it can only read and write issues of this repository.
 
 ## Deploy (dashboard, no tools needed)
 
 1. GitHub: *Settings > Developer settings > Personal access tokens > Fine-grained tokens > Generate new token*.
-   Repository access: *Only select repositories* > `AnyPS5-Compat`. Permissions: *Issues: Read and write*. Copy the token.
+   Repository access: *Only select repositories* > `AnyPS5-Compat`. Permissions: *Issues: Read and write* and *Contents: Read and write* (screenshots go to the `shots` branch). Copy the token.
 2. Cloudflare (free account): *Workers & Pages > Create > Create Worker*, name it `anyps5-compat`, *Deploy*.
 3. *Edit code*, replace everything with `worker.js`, *Deploy*.
 4. Worker *Settings > Variables and Secrets > Add*: type *Secret*, name `GITHUB_TOKEN`, value the token. *Deploy*.
