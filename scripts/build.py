@@ -50,6 +50,30 @@ SEPARATOR = "··· end of log ···"
 SHOT_PATH = re.compile(r"^shots/[A-Za-z0-9_.-]{1,32}/[A-Za-z0-9_.-]{1,80}\.jpg$")
 
 
+def official(r):
+    """Official AnyPS5: a stable release or boykopovar main without local changes. Forks and patched builds are not."""
+    a = r.get("anyps5") or {}
+    ch, ver = str(a.get("channel", "")), str(a.get("version", ""))
+    return ch == "release" or (ch == "repo" and "local" not in ver)
+
+
+def source_label(r):
+    a = r.get("anyps5") or {}
+    ch, ver = str(a.get("channel", "")), str(a.get("version", ""))
+    if ch == "release":
+        return f"stable {ver}".strip()
+    if ch == "repo":
+        return "main + local changes" if "local" in ver else "main"
+    return ch or "unknown"
+
+
+def best_of(reps):
+    if not reps:
+        return None
+    b = max(reps, key=lambda r: (ORDER.index(r["status"]), r.get("time") or ""))
+    return {"status": b["status"], "version": b.get("anyps5", {}).get("version", ""), "source": source_label(b)}
+
+
 def crashed(r):
     return r.get("exit_code") not in (0, None) and not r.get("closed_by_user") and r.get("status") != "convert"
 
@@ -132,6 +156,9 @@ def main():
         reps.sort(key=lambda r: r.get("time") or r["_created"])
         last = reps[-1]
         best = max(reps, key=lambda r: (ORDER.index(r["status"]), r.get("time") or ""))
+        off = best_of([r for r in reps if official(r)])
+        mod = best_of([r for r in reps if not official(r)])
+        fork_only = (not official(best)) and (off is None or ORDER.index(off["status"]) < ORDER.index(best["status"]))
         for rec in last.get("missing", []):
             if rec.get("class") != "absent":
                 continue
@@ -145,6 +172,11 @@ def main():
             "status": last["status"],
             "best": best["status"],
             "best_version": best.get("anyps5", {}).get("version", ""),
+            "best_source": source_label(best),
+            "best_official": off,
+            "best_modified": mod,
+            "fork_only": fork_only,
+            "source": source_label(last),
             "reports": len(reps),
             "testers": len({r.get("reporter") or r["_by"] for r in reps}),
             "updated": last.get("time") or last["_created"],

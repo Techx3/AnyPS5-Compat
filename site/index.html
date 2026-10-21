@@ -85,6 +85,11 @@ select {
 }
 .pill .dot { background: var(--c); }
 .muted { color: var(--dim); font-size: 13px; }
+.m-only { display: none; }
+.fork { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11px; letter-spacing: .3px;
+  border: 1px solid var(--s-boots); color: var(--s-boots); white-space: nowrap; vertical-align: middle; cursor: help; }
+.note { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; font-size: 13px;
+  background: color-mix(in srgb, var(--s-boots) 10%, transparent); border: 1px solid color-mix(in srgb, var(--s-boots) 40%, transparent); }
 .ver { font: 12px var(--mono); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chev { color: var(--dim); transition: transform .15s; justify-self: end; }
 .row[aria-expanded="true"] .chev { transform: rotate(90deg); }
@@ -128,6 +133,7 @@ footer { color: var(--dim); font-size: 13px; padding: 30px 0 40px; }
   .row.head { display: none; }
   .row .c-best, .row .c-ver, .row .c-upd, .row .chev { display: none; }
   .row .c-status { justify-self: end; }
+  .m-only { display: inline; }
   .detail { padding: 4px 14px 18px; }
   .toptable .lib, .toptable .m { display: none; }
 }
@@ -172,7 +178,9 @@ footer { color: var(--dim); font-size: 13px; padding: 30px 0 40px; }
 
   <footer>
     Status is measured by the console: <b>Does not convert</b> (AnyPS5 could not convert it), <b>Does not boot</b> (no game window),
-    <b>Boots</b> (window, under 2 min), <b>In game</b> (2–10 min), <b>Playable</b> (10+ min in one session).
+    <b>Boots</b> (window, under 2 min), <b>In game</b> (2–10 min), <b>Playable</b> (10+ min in one session without crashing).
+    <b>Official AnyPS5</b> is a stable release or boykopovar main without local changes; results only reached on a fork or a
+    modified build are tagged <b>fork only</b>, since they may depend on a fix that is not in official AnyPS5 yet.
     Not affiliated with Sony Interactive Entertainment.
   </footer>
 </div>
@@ -188,6 +196,7 @@ const STATUS = {
 const ORDER = ["playable", "ingame", "boots", "nothing", "convert"];
 let DATA = { games: [], counts: {}, top_missing: [] };
 const active = new Set();
+let onlyFork = false;
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pill = s => `<span class="pill" style="--c:${STATUS[s]?.color || "var(--dim)"}"><span class="dot"></span>${esc(STATUS[s]?.label || s)}</span>`;
@@ -206,6 +215,12 @@ function code(c) {
   const u = c < 0 ? c + 4294967296 : c;
   return u > 65535 ? `0x${u.toString(16).toUpperCase()}${NTSTATUS[u] ? " (" + NTSTATUS[u] + ")" : ""}` : String(c);
 }
+function forkTitle(g) {
+  const off = g.best_official ? `${STATUS[g.best_official.status].label} (${g.best_official.source})` : "not tested";
+  return `${STATUS[g.best].label} only on ${g.best_source}. Official AnyPS5 (main / release): ${off}. It may depend on a fix that only exists in that build.`;
+}
+const forkTag = g => g.fork_only ? `<span class="fork" title="${esc(forkTitle(g))}">fork only</span>` : "";
+const bestCell = b => b ? `${pill(b.status)} <span class="muted">${esc(b.source)}${b.version && !b.source.includes(b.version) ? " " + esc(b.version) : ""}</span>` : `<span class="muted">Not tested</span>`;
 const ver = a => a ? `${a.channel || ""} ${a.version || ""}`.trim() : "";
 
 function summary() {
@@ -215,7 +230,8 @@ function summary() {
   document.getElementById("legend").innerHTML = ORDER.map(s =>
     `<div><span class="dot" style="background:${STATUS[s].color}"></span><b>${DATA.counts[s] || 0}</b>${STATUS[s].label}</div>`).join("");
   document.getElementById("chips").innerHTML = ORDER.map(s =>
-    `<button class="chip" data-s="${s}" aria-pressed="${active.has(s)}"><span class="dot" style="background:${STATUS[s].color}"></span>${STATUS[s].label}</button>`).join("");
+    `<button class="chip" data-s="${s}" aria-pressed="${active.has(s)}"><span class="dot" style="background:${STATUS[s].color}"></span>${STATUS[s].label}</button>`).join("") +
+    `<button class="chip" data-s="fork" aria-pressed="${onlyFork}" title="Best result only on a fork or modified build">Fork only</button>`;
 }
 
 function detail(g) {
@@ -226,7 +242,8 @@ function detail(g) {
   return `
     <dl class="dgrid">
       <div><dt>AnyPS5</dt><dd class="ver">${esc(ver(g.anyps5))}</dd></div>
-      <div><dt>Best result</dt><dd>${pill(g.best)} <span class="muted">${esc(g.best_version)}</span></dd></div>
+      <div><dt>Best on official AnyPS5</dt><dd>${bestCell(g.best_official)}</dd></div>
+      <div><dt>Best on forks / modified builds</dt><dd>${bestCell(g.best_modified)}</dd></div>
       <div><dt>Last session</dt><dd>${g.minutes} min · ${g.crashed ? `<span style="color:var(--s-nothing)">crashed</span> · ` : ""}exit code ${esc(code(g.exit_code))}${g.closed_by_user ? " · closed by the user" : ""}</dd></div>
       <div><dt>System</dt><dd>${esc(g.os)}<br><span class="muted">${esc(g.gpu || "unknown GPU")}</span></dd></div>
       <div><dt>Functions</dt><dd>${g.absent} missing · ${g.stub} stub · ${g.missing_libs} libraries missing</dd></div>
@@ -235,6 +252,7 @@ function detail(g) {
     </dl>
     ${g.shots?.length ? `<h3>Screenshots</h3><div class="shots">${g.shots.map(x =>
       `<a href="${esc(x.url)}" target="_blank" rel="noopener"><img src="${esc(x.url)}" loading="lazy" alt="${x.minute} min"><span>${x.minute} min · ${esc(x.version)}</span></a>`).join("")}</div>` : ""}
+    ${g.fork_only ? `<div class="note">${esc(forkTitle(g))}</div>` : ""}
     <h3>Missing functions</h3>${fns}
     ${g.errors?.length ? `<h3>Errors in the log</h3><pre>${esc(g.errors.join("\n"))}</pre>` : ""}
     ${g.log_tail?.length ? `<h3>Log (last lines)</h3><pre>${esc(g.log_tail.join("\n"))}</pre>` : ""}
@@ -245,7 +263,7 @@ function render() {
   const q = document.getElementById("q").value.trim().toLowerCase();
   const sort = document.getElementById("sort").value;
   let rows = DATA.games.filter(g =>
-    (!active.size || active.has(g.status)) &&
+    (!active.size || active.has(g.status)) && (!onlyFork || g.fork_only) &&
     (!q || g.name.toLowerCase().includes(q) || g.title_id.toLowerCase().includes(q)));
   if (sort === "updated") rows.sort((a, b) => (b.updated || "").localeCompare(a.updated || ""));
   else if (sort === "status") rows.sort((a, b) => ORDER.indexOf(a.status) - ORDER.indexOf(b.status) || a.name.localeCompare(b.name));
@@ -260,8 +278,8 @@ function render() {
     rows.map((g, i) => `
       <div class="row" role="button" tabindex="0" aria-expanded="false" data-i="${i}">
         <div><div class="name">${esc(g.name)}</div><div class="tid">${esc(g.title_id)}</div></div>
-        <div class="c-status">${pill(g.status)}</div>
-        <div class="c-best">${pill(g.best)}</div>
+        <div class="c-status">${pill(g.status)}<span class="m-only">${forkTag(g)}</span></div>
+        <div class="c-best">${pill(g.best)}${forkTag(g)}</div>
         <div class="c-ver ver">${esc(ver(g.anyps5))}</div>
         <div class="c-upd muted">${ago(g.updated)}</div>
         <div class="chev">›</div>
@@ -283,6 +301,7 @@ document.addEventListener("click", e => {
   const chip = e.target.closest(".chip");
   if (chip) {
     const s = chip.dataset.s;
+    if (s === "fork") { onlyFork = !onlyFork; summary(); render(); return; }
     active.has(s) ? active.delete(s) : active.add(s);
     summary(); render(); return;
   }
