@@ -24,7 +24,7 @@ The console only sends a report when something changed for that game (status, An
 
 A session that ends with a non-zero exit code that the player did not cause is a crash and is never *Playable*.
 
-**Official vs fork:** official AnyPS5 is a stable release or `boykopovar/AnyPS5` main without local changes. When a game's best result was only reached on a fork or a modified build (main with local commits), the page tags it **fork only** and shows the best result on official AnyPS5 next to it (or *not tested*), because it may depend on a fix that only exists in that build.
+**Official vs fork:** official AnyPS5 is a stable release or `boykopovar/AnyPS5` main without local changes. When a game's best result was reported on a fork or a modified build (main with local commits) and not on official AnyPS5, the page tags it **not tested on main/release**, or shows the best official result next to it (for example *main/release: Boots*). It does not mean the game fails on main; it was just not confirmed there.
 
 ## What a report contains
 

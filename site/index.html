@@ -180,7 +180,7 @@ footer { color: var(--dim); font-size: 13px; padding: 30px 0 40px; }
     Status is measured by the console: <b>Does not convert</b> (AnyPS5 could not convert it), <b>Does not boot</b> (no game window),
     <b>Boots</b> (window, under 2 min), <b>In game</b> (2–10 min), <b>Playable</b> (10+ min in one session without crashing).
     <b>Official AnyPS5</b> is a stable release or boykopovar main without local changes; results only reached on a fork or a
-    modified build are tagged <b>fork only</b>, since they may depend on a fix that is not in official AnyPS5 yet.
+    modified build are tagged <b>not tested on main/release</b> (or with the best official result), so you know it was not confirmed on official AnyPS5.
     Not affiliated with Sony Interactive Entertainment.
   </footer>
 </div>
@@ -216,10 +216,13 @@ function code(c) {
   return u > 65535 ? `0x${u.toString(16).toUpperCase()}${NTSTATUS[u] ? " (" + NTSTATUS[u] + ")" : ""}` : String(c);
 }
 function forkTitle(g) {
-  const off = g.best_official ? `${STATUS[g.best_official.status].label} (${g.best_official.source})` : "not tested";
-  return `${STATUS[g.best].label} only on ${g.best_source}. Official AnyPS5 (main / release): ${off}. It may depend on a fix that only exists in that build.`;
+  const best = `${STATUS[g.best].label} was reported on ${g.best_source}.`;
+  return g.best_official
+    ? `${best} On official AnyPS5 (main / release) the best result so far is ${STATUS[g.best_official.status].label} (${g.best_official.source}).`
+    : `${best} Not tested on official AnyPS5 (main / release) yet.`;
 }
-const forkTag = g => g.fork_only ? `<span class="fork" title="${esc(forkTitle(g))}">fork only</span>` : "";
+const forkTagText = g => g.best_official ? `main/release: ${STATUS[g.best_official.status].label}` : "not tested on main/release";
+const forkTag = g => g.fork_only ? `<span class="fork" title="${esc(forkTitle(g))}">${esc(forkTagText(g))}</span>` : "";
 const bestCell = b => b ? `${pill(b.status)} <span class="muted">${esc(b.source)}${b.version && !b.source.includes(b.version) ? " " + esc(b.version) : ""}</span>` : `<span class="muted">Not tested</span>`;
 const ver = a => a ? `${a.channel || ""} ${a.version || ""}`.trim() : "";
 
@@ -231,7 +234,7 @@ function summary() {
     `<div><span class="dot" style="background:${STATUS[s].color}"></span><b>${DATA.counts[s] || 0}</b>${STATUS[s].label}</div>`).join("");
   document.getElementById("chips").innerHTML = ORDER.map(s =>
     `<button class="chip" data-s="${s}" aria-pressed="${active.has(s)}"><span class="dot" style="background:${STATUS[s].color}"></span>${STATUS[s].label}</button>`).join("") +
-    `<button class="chip" data-s="fork" aria-pressed="${onlyFork}" title="Best result only on a fork or modified build">Fork only</button>`;
+    `<button class="chip" data-s="fork" aria-pressed="${onlyFork}" title="Best result reported on a fork or modified build, not on main/release">Fork results</button>`;
 }
 
 function detail(g) {
