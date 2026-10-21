@@ -39,7 +39,8 @@ jobs:
       - name: Build prs.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/prs.py site/prs.json || echo '{"prs": []}' > site/prs.json
+        run: |
+          python scripts/prs.py site/prs.json || echo '{"prs": []}' > site/prs.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
