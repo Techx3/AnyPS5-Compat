@@ -9,7 +9,7 @@ on:
     branches: [main]
   workflow_dispatch:
   schedule:
-    - cron: "17 6 * * *"
+    - cron: "17 * * * *"
 
 permissions:
   contents: read
@@ -36,6 +36,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/build.py site/compat.json
+      - name: Build prs.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/prs.py site/prs.json || echo '{"prs": []}' > site/prs.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

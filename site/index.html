@@ -172,7 +172,7 @@ footer { color: var(--dim); font-size: 13px; padding: 30px 0 40px; }
 
   <section class="top">
     <h2>Most needed functions</h2>
-    <p>System functions missing in AnyPS5 for the most games, from each game's latest report.</p>
+    <p>System functions missing in AnyPS5 for the most games, from each game's latest report. <b>Open PR</b> links pull requests on AnyPS5 that implement the function.</p>
     <table class="toptable" id="top"></table>
   </section>
 
@@ -197,6 +197,7 @@ const ORDER = ["playable", "ingame", "boots", "nothing", "convert"];
 let DATA = { games: [], counts: {}, top_missing: [] };
 const active = new Set();
 let onlyFork = false;
+let PRS = {};  // function name -> [{number, url, title}]
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const pill = s => `<span class="pill" style="--c:${STATUS[s]?.color || "var(--dim)"}"><span class="dot"></span>${esc(STATUS[s]?.label || s)}</span>`;
@@ -224,6 +225,8 @@ function forkTitle(g) {
 const forkTagText = g => g.best_official ? `main/release: ${STATUS[g.best_official.status].label}` : "not tested on main/release";
 const forkTag = g => g.fork_only ? `<span class="fork" title="${esc(forkTitle(g))}">${esc(forkTagText(g))}</span>` : "";
 const bestCell = b => b ? `${pill(b.status)} <span class="muted">${esc(b.source)}${b.version && !b.source.includes(b.version) ? " " + esc(b.version) : ""}</span>` : `<span class="muted">Not tested</span>`;
+const prLinks = name => (PRS[name] || []).map(p =>
+  ` <a href="${esc(p.url)}" title="Open PR: ${esc(p.title)}">#${p.number}</a>`).join("");
 const ver = a => a ? `${a.channel || ""} ${a.version || ""}`.trim() : "";
 
 function summary() {
@@ -239,7 +242,7 @@ function summary() {
 
 function detail(g) {
   const fns = g.missing?.length
-    ? `<div class="fn">${g.missing.map(f => `<span><i>${esc(f.lib)}</i> ${esc(f.name || f.nid)}</span>`).join("")}</div>`
+    ? `<div class="fn">${g.missing.map(f => `<span><i>${esc(f.lib)}</i> ${esc(f.name || f.nid)}${prLinks(f.name)}</span>`).join("")}</div>`
     : `<div class="muted">None reported.</div>`;
   const stop = g.stop ? `<dt>Stops at</dt><dd class="ver">${esc(g.stop.lib)} ${esc(g.stop.name || g.stop.nid)}</dd>` : "";
   return `
@@ -294,8 +297,8 @@ function renderTop() {
   const t = DATA.top_missing || [];
   const max = Math.max(1, ...t.map(x => x.games));
   document.getElementById("top").innerHTML = t.length
-    ? `<tr><th class="lib">Library</th><th>Function</th><th>Games</th><th class="m" style="width:22%"></th></tr>` +
-      t.map(x => `<tr><td class="lib">${esc(x.lib)}</td><td class="fname">${esc(x.name)}</td><td class="n">${x.games}</td>
+    ? `<tr><th class="lib">Library</th><th>Function</th><th>Open PR</th><th>Games</th><th class="m" style="width:18%"></th></tr>` +
+      t.map(x => `<tr><td class="lib">${esc(x.lib)}</td><td class="fname">${esc(x.name)}</td><td>${prLinks(x.name) || '<span class="muted">–</span>'}</td><td class="n">${x.games}</td>
         <td class="m"><div class="meter" style="width:${x.games / max * 100}%"></div></td></tr>`).join("")
     : `<tr><td class="empty">Nothing yet.</td></tr>`;
 }
@@ -326,6 +329,10 @@ document.getElementById("sort").addEventListener("change", render);
 const params = new URLSearchParams(location.search);
 if (params.get("q")) document.getElementById("q").value = params.get("q");
 
+fetch("prs.json", { cache: "no-store" }).then(r => r.ok ? r.json() : { prs: [] }).catch(() => ({ prs: [] })).then(d => {
+  for (const p of d.prs || []) for (const f of p.functions) (PRS[f] = PRS[f] || []).push(p);
+  if (DATA.games.length) { render(); renderTop(); }
+});
 fetch("compat.json", { cache: "no-store" })
   .then(r => r.ok ? r.json() : Promise.reject(r.status))
   .then(d => {

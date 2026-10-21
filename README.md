@@ -42,7 +42,7 @@ The full report is kept as JSON in an HTML comment at the end of each issue or c
 
 - Every game with its current status, best result, AnyPS5 version and last report, with search and status filters.
 - Details per game: crash reason and exit code, missing functions, log errors, last log lines, screenshots, links to the issue and the report.
-- *Most needed functions*: functions missing for the most games, from each game's latest report.
+- *Most needed functions*: functions missing for the most games, from each game's latest report, with links to open AnyPS5 pull requests that implement them.
 
 ## Maintaining
 
@@ -54,6 +54,7 @@ The full report is kept as JSON in an HTML comment at the end of each issue or c
 ## Files
 
 - `scripts/build.py`: reads the issues and writes `site/compat.json`, sets the status labels.
+- `scripts/prs.py`: lists open [AnyPS5 pull requests](https://github.com/boykopovar/AnyPS5/pulls) and the system functions each one implements (`site/prs.json`, every hour). AnyPS5 Console uses it to tell you when a PR implements a function your games are missing.
 - `site/`: the page.
 - `relay/worker.js`: Cloudflare Worker that receives reports and screenshots.
-- `.github/workflows/pages.yml`: runs on every issue or comment, daily and on push.
+- `.github/workflows/pages.yml`: runs on every issue or comment, every hour and on push.
