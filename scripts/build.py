@@ -92,6 +92,7 @@ def main():
     labels_ok = ensure_labels()
     games = []
     missing_count = {}
+    by_tid = {}
     for issue in paged(f"/repos/{REPO}/issues?state=all&per_page=100"):
         if "pull_request" in issue:
             continue
@@ -104,6 +105,12 @@ def main():
                 reps += reports_in(c.get("body"), c["user"]["login"], c["html_url"], c["created_at"])
         if not reps:
             continue
+        entry = by_tid.setdefault(m.group(1).upper(), {"issues": [], "reps": [], "title": m.group(2)})
+        entry["issues"].append(issue)
+        entry["reps"] += reps
+    for tid, entry in by_tid.items():
+        reps = entry["reps"]
+        issue = min(entry["issues"], key=lambda i: i["number"])
         reps.sort(key=lambda r: r.get("time") or r["_created"])
         last = reps[-1]
         best = max(reps, key=lambda r: (ORDER.index(r["status"]), r.get("time") or ""))
@@ -111,17 +118,17 @@ def main():
             if rec.get("class") != "absent":
                 continue
             key = (rec.get("lib", ""), rec.get("name") or rec.get("nid", ""))
-            missing_count.setdefault(key, set()).add(m.group(1))
+            missing_count.setdefault(key, set()).add(tid)
         games.append({
-            "title_id": m.group(1),
-            "name": last.get("name") or m.group(2),
+            "title_id": tid,
+            "name": last.get("name") or entry["title"],
             "issue": issue["number"],
             "url": issue["html_url"],
             "status": last["status"],
             "best": best["status"],
             "best_version": best.get("anyps5", {}).get("version", ""),
             "reports": len(reps),
-            "testers": len({r["_by"] for r in reps}),
+            "testers": len({r.get("reporter") or r["_by"] for r in reps}),
             "updated": last.get("time") or last["_created"],
             "anyps5": last.get("anyps5", {}),
             "console": last.get("console", ""),
@@ -140,7 +147,8 @@ def main():
             "report_url": last["_url"],
         })
         if labels_ok:
-            set_label(issue, last["status"])
+            for i in entry["issues"]:
+                set_label(i, last["status"])
     games.sort(key=lambda g: g["name"].lower())
     top = sorted(({"lib": k[0], "name": k[1], "games": len(v)} for k, v in missing_count.items()),
                  key=lambda x: (-x["games"], x["lib"], x["name"]))[:40]
