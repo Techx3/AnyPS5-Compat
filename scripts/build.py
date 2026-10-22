@@ -193,6 +193,8 @@ def main():
             "missing_libs": last.get("missing_libs", 0),
             "missing": [x for x in last.get("missing", []) if x.get("class") == "absent"][:30],
             "stop": last.get("stop"),
+            "settings": {k: str(v) for k, v in (last.get("settings") or {}).items()
+                         if isinstance(k, str) and k.startswith(("APS5_", "ANYPS5_"))},
             "crashed": crashed(last),
             "shots": next(([{"minute": x.get("minute", 0),
                              "url": f"https://raw.githubusercontent.com/{REPO}/shots/{x['path']}",

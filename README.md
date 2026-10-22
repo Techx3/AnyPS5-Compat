@@ -32,6 +32,7 @@ A session that ends with a non-zero exit code that the player did not cause is a
 - AnyPS5 channel and commit (or release tag) and console version.
 - Minutes played, exit code, whether the player closed the game.
 - Missing system functions from the console's function check and where the game stops.
+- AnyPS5 settings (`APS5_*` variables) the game ran with, such as the console's compatibility settings.
 - Error lines from the whole log plus its last lines; paths and user names are removed.
 - Screenshots of the game window at 2 and 10 minutes (stored in the [`shots`](../../tree/shots) branch).
 - Windows version, GPU name and an anonymous random ID per installation.

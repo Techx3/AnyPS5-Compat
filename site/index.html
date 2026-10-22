@@ -255,6 +255,7 @@ function detail(g) {
       <div><dt>Functions</dt><dd>${g.absent} missing · ${g.stub} stub · ${g.missing_libs} libraries missing</dd></div>
       <div><dt>Reports</dt><dd>${g.reports} from ${g.testers} tester${g.testers === 1 ? "" : "s"} · game ${esc(g.game_version || "–")}</dd></div>
       ${stop ? `<div>${stop}</div>` : ""}
+      ${Object.keys(g.settings || {}).length ? `<div><dt>Settings used</dt><dd class="ver">${Object.entries(g.settings).map(([k, v]) => esc(k + "=" + v)).join("<br>")}</dd></div>` : ""}
     </dl>
     ${g.shots?.length ? `<h3>Screenshots</h3><div class="shots">${g.shots.map(x =>
       `<a href="${esc(x.url)}" target="_blank" rel="noopener"><img src="${esc(x.url)}" loading="lazy" alt="${x.minute} min"><span>${x.minute} min · ${esc(x.version)}</span></a>`).join("")}</div>` : ""}

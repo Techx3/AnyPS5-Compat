@@ -68,6 +68,8 @@ function clean(r) {
     missing_libs: num(r.missing_libs) || 0,
     missing: (Array.isArray(r.missing) ? r.missing : []).slice(0, 80).map(fn),
     stop: r.stop ? { lib: str(r.stop.lib, 80), name: str(r.stop.name, 120), nid: str(r.stop.nid, 32) } : null,
+    settings: Object.fromEntries(Object.entries(r.settings && typeof r.settings === "object" ? r.settings : {})
+      .filter(([k]) => /^(APS5|ANYPS5)_[A-Z0-9_]{1,60}$/.test(k)).slice(0, 20).map(([k, v]) => [k, str(v, 40)])),
     log_tail: (Array.isArray(r.log_tail) ? r.log_tail : []).slice(-60).map(x => str(x, 300).replace(/```/g, "'''")),
     reporter: str(r.reporter, 40),
     shots: (Array.isArray(r.shots) ? r.shots : []).slice(0, 4)
@@ -87,6 +89,8 @@ function body(r) {
     `**Functions:** ${r.absent} missing, ${r.stub} stub, ${r.missing_libs} missing libraries`,
   ];
   if (r.stop) lines.push(`**Stops at:** \`${r.stop.lib}\` ${r.stop.name || r.stop.nid}`);
+  const settings = Object.entries(r.settings || {});
+  if (settings.length) lines.push(`**Settings:** ${settings.map(([k, v]) => "`" + k + "=" + v.replace(/`/g, "") + "`").join(", ")}`);
   if (r.shots.length) lines.push("", r.shots.map(x => `<img src="${RAW}${x.path}" width="320" alt="${x.minute} min">`).join(" "));
   if (r.log_tail.length) lines.push("", "<details><summary>Log (last lines)</summary>", "", "```", ...r.log_tail.slice(-40), "```", "</details>");
   lines.push("", "<!-- anyps5-report", JSON.stringify(r).replace(/--/g, "\\u002d\\u002d").replace(/>/g, "\\u003e"), "-->");
