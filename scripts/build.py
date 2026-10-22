@@ -11,6 +11,7 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "Techx3/AnyPS5-Compat")
 TOKEN = os.environ.get("GITHUB_TOKEN", "")
 OUT = sys.argv[1] if len(sys.argv) > 1 else "site/compat.json"
 TITLE = re.compile(r"^\[([A-Za-z0-9_.-]+)\]\s*(.*)$")
+TITLE_ID = re.compile(r"^[A-Z]{4}\d{5}$")
 BLOCK = re.compile(r"<!-- anyps5-report\s*\n(.*?)\n-->", re.S)
 ORDER = ["convert", "nothing", "boots", "ingame", "playable"]
 LABELS = {
@@ -136,8 +137,8 @@ def main():
         if "pull_request" in issue:
             continue
         m = TITLE.match(issue["title"])
-        if not m:
-            continue
+        if not m or not TITLE_ID.match(m.group(1).upper()):
+            continue  # not a game title ID (a folder name reported by an older console)
         reps = reports_in(issue.get("body"), issue["user"]["login"], issue["html_url"], issue["created_at"])
         if issue.get("comments"):
             for c in paged(f"/repos/{REPO}/issues/{issue['number']}/comments?per_page=100"):
@@ -155,7 +156,10 @@ def main():
         issue = min(entry["issues"], key=lambda i: i["number"])
         reps.sort(key=lambda r: r.get("time") or r["_created"])
         last = reps[-1]
-        best = max(reps, key=lambda r: (ORDER.index(r["status"]), r.get("time") or ""))
+        # Sessions run with diagnostic settings (traces, frame dumps, debug overrides) don't rate the game.
+        rated = [r for r in reps if not r.get("diagnostic")] or reps
+        best = max(rated, key=lambda r: (ORDER.index(r["status"]), r.get("time") or ""))
+        reps = rated
         off = best_of([r for r in reps if official(r)])
         mod = best_of([r for r in reps if not official(r)])
         fork_only = (not official(best)) and (off is None or ORDER.index(off["status"]) < ORDER.index(best["status"]))
@@ -169,7 +173,8 @@ def main():
             "name": last.get("name") or entry["title"],
             "issue": issue["number"],
             "url": issue["html_url"],
-            "status": last["status"],
+            "status": best["status"],
+            "last_status": last["status"],
             "best": best["status"],
             "best_version": best.get("anyps5", {}).get("version", ""),
             "best_source": source_label(best),
@@ -208,7 +213,7 @@ def main():
         })
         if labels_ok:
             for i in entry["issues"]:
-                set_label(i, last["status"])
+                set_label(i, best["status"])
     games.sort(key=lambda g: g["name"].lower())
     top = sorted(({"lib": k[0], "name": k[1], "games": len(v)} for k, v in missing_count.items()),
                  key=lambda x: (-x["games"], x["lib"], x["name"]))[:40]

@@ -6,7 +6,7 @@ const REPO = "Techx3/AnyPS5-Compat";
 const STATUSES = { convert: "Does not convert", nothing: "Does not boot", boots: "Boots", ingame: "In game", playable: "Playable" };
 const MAX_BODY = 64 * 1024;
 const PER_IP_PER_HOUR = 30;
-const TITLE_ID = /^[A-Za-z0-9_.-]{1,32}$/;
+const TITLE_ID = /^[A-Z]{4}[0-9]{5}$/;
 const SHOTS_BRANCH = "shots";
 const SHOT_PATH = /^shots\/[A-Za-z0-9_.-]{1,32}\/[A-Za-z0-9_.-]{1,80}\.jpg$/;
 const MAX_SHOT = 400 * 1024;
@@ -72,6 +72,7 @@ function clean(r) {
       .filter(([k]) => /^(APS5|ANYPS5)_[A-Z0-9_]{1,60}$/.test(k)).slice(0, 20).map(([k, v]) => [k, str(v, 40)])),
     log_tail: (Array.isArray(r.log_tail) ? r.log_tail : []).slice(-60).map(x => str(x, 300).replace(/```/g, "'''")),
     reporter: str(r.reporter, 40),
+    diagnostic: !!r.diagnostic,
     shots: (Array.isArray(r.shots) ? r.shots : []).slice(0, 4)
       .filter(x => SHOT_PATH.test(String(x?.path || "")))
       .map(x => ({ minute: Math.max(0, Math.min(num(x.minute) || 0, 600)), path: String(x.path) })),
@@ -89,6 +90,7 @@ function body(r) {
     `**Functions:** ${r.absent} missing, ${r.stub} stub, ${r.missing_libs} missing libraries`,
   ];
   if (r.stop) lines.push(`**Stops at:** \`${r.stop.lib}\` ${r.stop.name || r.stop.nid}`);
+  if (r.diagnostic) lines.push("**Diagnostic session:** traces or debug settings were on; it does not rate the game.");
   const settings = Object.entries(r.settings || {});
   if (settings.length) lines.push(`**Settings:** ${settings.map(([k, v]) => "`" + k + "=" + v.replace(/`/g, "") + "`").join(", ")}`);
   if (r.shots.length) lines.push("", r.shots.map(x => `<img src="${RAW}${x.path}" width="320" alt="${x.minute} min">`).join(" "));
